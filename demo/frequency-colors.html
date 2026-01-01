@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <title>Frequency-Based Waveform Coloring Demo</title>
+    <style>
+      body {
+        background-color: #1a1a2e;
+        color: #eee;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding: 20px;
+        margin: 0;
+      }
+
+      h1 {
+        color: #fff;
+        margin-bottom: 10px;
+      }
+
+      .description {
+        color: #aaa;
+        margin-bottom: 20px;
+        max-width: 800px;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 20px;
+        padding: 15px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+      }
+
+      .color-box {
+        width: 20px;
+        height: 20px;
+        border-radius: 3px;
+      }
+
+      .controls {
+        margin-bottom: 20px;
+      }
+
+      button {
+        padding: 10px 20px;
+        margin-right: 10px;
+        background: #0f4c75;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+
+      button:hover {
+        background: #3282b8;
+      }
+
+      button.active {
+        background: #2e8b57;
+      }
+
+      stemplayer-js {
+        --stemplayer-js-background-color: #16213e;
+        --stemplayer-js-brand-color: #3282b8;
+        --stemplayer-js-row-controls-background-color: #0f4c75;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Frequency-Based Waveform Coloring</h1>
+    <p class="description">
+      This demo shows waveforms colored based on dominant frequencies in each segment.
+      Inspired by U.S. Patent 6,184,898 (Comparisonics color scheme):
+      dark colors for bass, blues/greens for mid-range, and reds/oranges for high frequencies.
+    </p>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="color-box" style="background: darkblue;"></div>
+        <span>Bass (0-1 kHz)</span>
+      </div>
+      <div class="legend-item">
+        <div class="color-box" style="background: blue;"></div>
+        <span>Mid (1-3 kHz)</span>
+      </div>
+      <div class="legend-item">
+        <div class="color-box" style="background: green;"></div>
+        <span>Upper-mid (3-6 kHz)</span>
+      </div>
+      <div class="legend-item">
+        <div class="color-box" style="background: yellow;"></div>
+        <span>Presence (6-10 kHz)</span>
+      </div>
+      <div class="legend-item">
+        <div class="color-box" style="background: orange;"></div>
+        <span>Brilliance (10-15 kHz)</span>
+      </div>
+      <div class="legend-item">
+        <div class="color-box" style="background: red;"></div>
+        <span>High (15+ kHz)</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="toggleColors" class="active">Frequency Colors: ON</button>
+    </div>
+
+    <script type="module">
+      import 'lit';
+      import '../stemplayer.js';
+    </script>
+
+    <stemplayer-js id="player">
+      <stemplayer-js-controls
+        label="Frequency Colors Demo"
+        frequency-colors
+      ></stemplayer-js-controls>
+      <stemplayer-js-stem
+        label="Drums A"
+        src="assets/audio/106%20DRUMS%20A_02.5.m3u8"
+        waveform="assets/waveforms/106%20DRUMS%20A_02.5.json"
+        volume="1"
+        frequency-colors
+      >
+      </stemplayer-js-stem>
+      <stemplayer-js-stem
+        id="stem-drums-b"
+        label="Drums B"
+        src="assets/audio/106%20DRUMS%20B_01.5.m3u8"
+        waveform="assets/waveforms/106%20DRUMS%20B_01.5.json"
+        volume="0.8"
+        frequency-colors
+      ></stemplayer-js-stem>
+      <stemplayer-js-stem
+        label="Conga"
+        src="assets/audio/106%20CONGA_03.3.m3u8"
+        waveform="assets/waveforms/106%20CONGA_03.3.json"
+        volume="0.7"
+        frequency-colors
+      ></stemplayer-js-stem>
+      <stemplayer-js-stem
+        label="Casaba"
+        src="assets/audio/106%20CABASA_04.3.m3u8"
+        waveform="assets/waveforms/106%20CABASA_04.3.json"
+        volume="0.4"
+        frequency-colors
+      ></stemplayer-js-stem>
+      <stemplayer-js-stem
+        label="Bell"
+        src="assets/audio/106%20BELL_05.3.m3u8"
+        waveform="assets/waveforms/106%20BELL_05.3.json"
+        volume="0.5"
+        frequency-colors
+      ></stemplayer-js-stem>
+    </stemplayer-js>
+
+    <script>
+      const toggleBtn = document.getElementById('toggleColors');
+      const player = document.getElementById('player');
+      let frequencyColorsEnabled = true;
+
+      toggleBtn.addEventListener('click', () => {
+        frequencyColorsEnabled = !frequencyColorsEnabled;
+
+        // Toggle on all stems
+        const stems = player.querySelectorAll('stemplayer-js-stem');
+        stems.forEach(stem => {
+          stem.frequencyColors = frequencyColorsEnabled;
+        });
+
+        // Toggle on controls
+        const controls = player.querySelector('stemplayer-js-controls');
+        if (controls) {
+          controls.frequencyColors = frequencyColorsEnabled;
+        }
+
+        // Update button
+        toggleBtn.textContent = `Frequency Colors: ${frequencyColorsEnabled ? 'ON' : 'OFF'}`;
+        toggleBtn.classList.toggle('active', frequencyColorsEnabled);
+      });
+    </script>
+  </body>
+</html>

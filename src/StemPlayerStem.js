@@ -8,7 +8,8 @@ import spacingStyles from './styles/spacing.js';
 import typographyStyles from './styles/typography.js';
 import bgStyles from './styles/backgrounds.js';
 import utilityStyle from './styles/utilities.js';
-import { fetchOptions } from './config.js';
+import { fetchOptions, frequencyWaveform as frequencyWaveformConfig } from './config.js';
+import './FrequencyWaveform.js';
 
 /**
  * A component to render a single stem
@@ -75,6 +76,19 @@ export class FcStemPlayerStem extends WaveformHostMixin(
        * The wave progress colour
        */
       waveProgressColor: { type: String },
+
+      /**
+       * Enable frequency-based waveform coloring
+       * When true, uses spectral analysis to color the waveform
+       * based on dominant frequencies (bass=dark, mid=blues/greens, high=reds)
+       */
+      frequencyColors: { type: Boolean, attribute: 'frequency-colors' },
+
+      /**
+       * Custom frequency bands for coloring (optional)
+       * Array of { min: Hz, max: Hz, color: '#hex' } objects
+       */
+      frequencyBands: { type: Array, attribute: 'frequency-bands' },
     };
   }
 
@@ -94,6 +108,8 @@ export class FcStemPlayerStem extends WaveformHostMixin(
     super();
     this.#volume = 1;
     this.solo = 'off';
+    this.frequencyColors = frequencyWaveformConfig.enabled;
+    this.frequencyBands = frequencyWaveformConfig.bands;
   }
 
   disconnectedCallback() {
@@ -210,12 +226,20 @@ export class FcStemPlayerStem extends WaveformHostMixin(
         @change=${e => this.#handleVolume(e.detail / 100)}
         >${this.label}</fc-slider
       >
-      <!-- for calculating combined peaks which should still be emited in events -->
-      <fc-waveform
-        .src=${this.waveform}
-        .scaleY=${this.volume}
-        style="display: none;"
-      ></fc-waveform>
+      <!-- for calculating combined peaks which should still be emitted in events -->
+      ${this.frequencyColors
+        ? html`<fc-frequency-waveform
+            .src=${this.waveform}
+            .audioSrc=${this.waveform ? null : this.src}
+            .scaleY=${this.volume}
+            .frequencyBands=${this.frequencyBands}
+            style="display: none;"
+          ></fc-frequency-waveform>`
+        : html`<fc-waveform
+            .src=${this.waveform}
+            .scaleY=${this.volume}
+            style="display: none;"
+          ></fc-waveform>`}
     </stemplayer-js-row>`;
   }
 
@@ -252,20 +276,36 @@ export class FcStemPlayerStem extends WaveformHostMixin(
         </div>
       </div>
       ${styles
-        ? html`
-            <fc-waveform
-              class="h100"
-              slot="flex"
-              .src=${this.waveform}
-              .progress=${this.currentPct}
-              .scaleY=${this.volume}
-              .progressColor=${styles.waveProgressColor}
-              .waveColor=${styles.waveColor}
-              .barWidth=${styles.barWidth}
-              .barGap=${styles.barGap}
-              .pixelRatio=${styles.devicePixelRatio}
-            ></fc-waveform>
-          `
+        ? this.frequencyColors
+          ? html`
+              <fc-frequency-waveform
+                class="h100"
+                slot="flex"
+                .src=${this.waveform}
+                .audioSrc=${this.waveform ? null : this.src}
+                .progress=${this.currentPct}
+                .scaleY=${this.volume}
+                .progressOverlayColor=${styles.waveProgressColor}
+                .barWidth=${styles.barWidth}
+                .barGap=${styles.barGap}
+                .pixelRatio=${styles.devicePixelRatio}
+                .frequencyBands=${this.frequencyBands}
+              ></fc-frequency-waveform>
+            `
+          : html`
+              <fc-waveform
+                class="h100"
+                slot="flex"
+                .src=${this.waveform}
+                .progress=${this.currentPct}
+                .scaleY=${this.volume}
+                .progressColor=${styles.waveProgressColor}
+                .waveColor=${styles.waveColor}
+                .barWidth=${styles.barWidth}
+                .barGap=${styles.barGap}
+                .pixelRatio=${styles.devicePixelRatio}
+              ></fc-waveform>
+            `
         : ''}
     </stemplayer-js-row>`;
   }
@@ -353,7 +393,10 @@ export class FcStemPlayerStem extends WaveformHostMixin(
    * @private
    */
   get waveformComponent() {
-    return this.shadowRoot?.querySelector('fc-waveform');
+    return (
+      this.shadowRoot?.querySelector('fc-waveform') ||
+      this.shadowRoot?.querySelector('fc-frequency-waveform')
+    );
   }
 
   get row() {

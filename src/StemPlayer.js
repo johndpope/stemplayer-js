@@ -551,9 +551,15 @@ export class FcStemPlayer extends ResponsiveLitElement {
    * @private
    */
   #mergePeaks() {
-    const peaks = Peaks.combine(
-      ...this.stemComponents.map(c => c.peaks).filter(e => !!e),
-    );
+    // Filter peaks that exist and have a data property
+    const validPeaks = this.stemComponents
+      .map(c => c.peaks)
+      .filter(e => e && e.data && e.data.length > 0);
+
+    // Don't merge if no valid peaks yet
+    if (validPeaks.length === 0) return;
+
+    const peaks = Peaks.combine(...validPeaks);
 
     // pass the combined peaks to the controls component
     this.slottedElements

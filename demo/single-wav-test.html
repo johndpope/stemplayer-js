@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Single WAV Test - Frequency Waveform</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #fff;
+            color: #333;
+            padding: 2rem;
+        }
+
+        h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+
+        .reference {
+            margin-bottom: 2rem;
+        }
+        .reference img {
+            max-width: 100%;
+            border: 1px solid #ccc;
+        }
+        .reference-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .waveform-section {
+            margin-bottom: 2rem;
+        }
+        .section-label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .waveform-container {
+            height: 80px;
+            border: 1px solid #ddd;
+            background: #fafafa;
+        }
+
+        fc-frequency-waveform {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+
+        .play-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            background: #3282b8;
+            color: white;
+            cursor: pointer;
+            font-size: 20px;
+        }
+        .play-btn:hover { background: #2e8b57; }
+
+        .file-input {
+            flex: 1;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 1rem;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+        .color-box { width: 16px; height: 16px; border-radius: 3px; }
+
+        .status {
+            font-size: 13px;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Single WAV Frequency Waveform Test</h1>
+
+    <div class="reference">
+        <div class="section-label">Reference Image:</div>
+        <img src="/Users/johndpope/Desktop/0147698.jpg" alt="Reference waveform" id="refImg">
+        <div class="reference-label">Target appearance from Comparisonics</div>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item"><div class="color-box" style="background: rgb(100,80,140);"></div><span>Bass</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(60,140,160);"></div><span>Low</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(100,200,100);"></div><span>Mid</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(240,220,100);"></div><span>Upper</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(250,150,150);"></div><span>Presence</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(230,100,180);"></div><span>High</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(200,80,200);"></div><span>V.High</span></div>
+    </div>
+
+    <div class="controls">
+        <button class="play-btn" id="playBtn">▶</button>
+        <input type="file" accept="audio/*" id="fileInput" class="file-input">
+    </div>
+
+    <div class="waveform-section">
+        <div class="section-label">Generated Waveform:</div>
+        <div class="waveform-container">
+            <fc-frequency-waveform id="waveform"></fc-frequency-waveform>
+        </div>
+        <div class="status" id="status">Select a WAV file or it will auto-load minip5.wav</div>
+    </div>
+
+    <script type="module">
+        import { FcFrequencyWaveform } from '../src/FrequencyWaveform.js';
+
+        const waveform = document.getElementById('waveform');
+        const playBtn = document.getElementById('playBtn');
+        const fileInput = document.getElementById('fileInput');
+        const status = document.getElementById('status');
+
+        let audioContext;
+        let audioBuffer;
+        let sourceNode;
+        let isPlaying = false;
+        let startTime = 0;
+        let pausedAt = 0;
+
+        // Try to load the reference image
+        const refImg = document.getElementById('refImg');
+        refImg.onerror = () => {
+            refImg.style.display = 'none';
+        };
+
+        // Initialize audio context
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            return audioContext;
+        }
+
+        // Load audio from file
+        async function loadAudio(file) {
+            initAudio();
+            status.textContent = 'Loading audio...';
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                waveform.audioBuffer = audioBuffer;
+                status.textContent = `Loaded: ${file.name} (${audioBuffer.duration.toFixed(2)}s, ${audioBuffer.sampleRate}Hz)`;
+            } catch (err) {
+                status.textContent = `Error: ${err.message}`;
+                console.error(err);
+            }
+        }
+
+        // Load audio from URL
+        async function loadAudioFromUrl(url) {
+            initAudio();
+            status.textContent = 'Loading audio from URL...';
+
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                waveform.audioBuffer = audioBuffer;
+                status.textContent = `Loaded: ${url.split('/').pop()} (${audioBuffer.duration.toFixed(2)}s, ${audioBuffer.sampleRate}Hz)`;
+            } catch (err) {
+                status.textContent = `Error loading ${url}: ${err.message}`;
+                console.error(err);
+            }
+        }
+
+        // File input handler
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                loadAudio(e.target.files[0]);
+            }
+        });
+
+        // Play/Pause
+        playBtn.addEventListener('click', () => {
+            if (audioContext?.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            if (!audioBuffer) {
+                status.textContent = 'No audio loaded';
+                return;
+            }
+
+            if (isPlaying) {
+                pause();
+            } else {
+                play();
+            }
+        });
+
+        function play() {
+            isPlaying = true;
+            playBtn.textContent = '⏸';
+            startTime = audioContext.currentTime - pausedAt;
+
+            sourceNode = audioContext.createBufferSource();
+            sourceNode.buffer = audioBuffer;
+            sourceNode.connect(audioContext.destination);
+            sourceNode.start(0, pausedAt);
+            sourceNode.onended = () => {
+                if (isPlaying) {
+                    isPlaying = false;
+                    playBtn.textContent = '▶';
+                    pausedAt = 0;
+                    waveform.progress = 0;
+                }
+            };
+
+            updateProgress();
+        }
+
+        function pause() {
+            isPlaying = false;
+            playBtn.textContent = '▶';
+            pausedAt = audioContext.currentTime - startTime;
+
+            if (sourceNode) {
+                sourceNode.stop();
+                sourceNode = null;
+            }
+        }
+
+        function updateProgress() {
+            if (!isPlaying) return;
+
+            const currentTime = audioContext.currentTime - startTime;
+            const progress = currentTime / audioBuffer.duration;
+
+            if (progress >= 1) {
+                pause();
+                pausedAt = 0;
+                waveform.progress = 0;
+                return;
+            }
+
+            waveform.progress = progress;
+            requestAnimationFrame(updateProgress);
+        }
+
+        // Click on waveform to seek
+        waveform.addEventListener('waveform:seek', (e) => {
+            if (!audioBuffer) return;
+
+            const pct = e.detail;
+            const wasPlaying = isPlaying;
+            if (isPlaying) pause();
+
+            pausedAt = pct * audioBuffer.duration;
+            waveform.progress = pct;
+
+            if (wasPlaying) play();
+        });
+
+        // Auto-load minip5.wav if it exists (for local testing)
+        // This won't work in browser due to file:// restrictions, but works with dev server
+        // You can use the file picker instead
+    </script>
+</body>
+</html>

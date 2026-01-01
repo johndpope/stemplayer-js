@@ -9,8 +9,17 @@ import { FcStemPlayerControls } from './src/StemPlayerControls.js';
 import { FcStemPlayerStem } from './src/StemPlayerStem.js';
 import { Workspace } from './src/Workspace.js';
 import { Row } from './src/Row.js';
+import { FcFrequencyWaveform } from './src/FrequencyWaveform.js';
 
 export { default as config } from './src/config.js';
+export { FcFrequencyWaveform } from './src/FrequencyWaveform.js';
+export {
+  FFT,
+  FourierTransform,
+  analyzeFrequencyColors,
+  getColorForFrequency,
+  DEFAULT_FREQUENCY_BANDS,
+} from './src/lib/fft.js';
 
 window.customElements.define('stemplayer-js', FcStemPlayer);
 window.customElements.define('stemplayer-js-controls', FcStemPlayerControls);

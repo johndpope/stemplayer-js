@@ -9,6 +9,8 @@ import bgStyles from './styles/backgrounds.js';
 import utilityStyle from './styles/utilities.js';
 import formatSeconds from './lib/format-seconds.js';
 import debounce from './lib/debounce.js';
+import { frequencyWaveform as frequencyWaveformConfig } from './config.js';
+import './FrequencyWaveform.js';
 
 /**
  * A component to render a single stem
@@ -92,6 +94,19 @@ export class FcStemPlayerControls extends WaveformHostMixin(
           },
         },
       },
+
+      /**
+       * Enable frequency-based waveform coloring
+       * When true, uses spectral analysis to color the waveform
+       * based on dominant frequencies (bass=dark, mid=blues/greens, high=reds)
+       */
+      frequencyColors: { type: Boolean, attribute: 'frequency-colors' },
+
+      /**
+       * Custom frequency bands for coloring (optional)
+       * Array of { min: Hz, max: Hz, color: '#hex' } objects
+       */
+      frequencyBands: { type: Array, attribute: 'frequency-bands' },
     };
   }
 
@@ -104,6 +119,8 @@ export class FcStemPlayerControls extends WaveformHostMixin(
     super();
     this.#debouncedHandleSeek = debounce(this.#handleSeek, 100);
     this.controls = ['playpause', 'loop', 'progress', 'duration', 'time'];
+    this.frequencyColors = frequencyWaveformConfig.enabled;
+    this.frequencyBands = frequencyWaveformConfig.bands;
   }
 
   render() {
@@ -302,6 +319,21 @@ export class FcStemPlayerControls extends WaveformHostMixin(
 
     if (value === 'waveform') {
       const styles = this.getComputedWaveformStyles();
+
+      if (this.frequencyColors) {
+        return html`
+          <fc-frequency-waveform
+            .peaks=${this.peaks}
+            .duration=${this.duration}
+            .progress=${this.currentPct}
+            .progressOverlayColor=${styles.waveProgressColor}
+            .barWidth=${styles.barWidth}
+            .barGap=${styles.barGap}
+            .pixelRatio=${styles.devicePixelRatio}
+            .frequencyBands=${this.frequencyBands}
+          ></fc-frequency-waveform>
+        `;
+      }
 
       return html`
         <fc-waveform

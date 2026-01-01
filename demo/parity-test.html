@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparisonics Parity Test</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #222;
+            color: #fff;
+            padding: 1rem;
+        }
+        h1 { font-size: 1.3rem; margin-bottom: 1rem; color: #aaa; }
+        .sample-pair {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            background: #333;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        .sample-name {
+            grid-column: 1 / -1;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #3282b8;
+        }
+        .sample-info {
+            grid-column: 1 / -1;
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 0.5rem;
+        }
+        .waveform-box {
+            background: #f8f8f8;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .waveform-box.ours {
+            height: 80px;
+        }
+        .waveform-box.reference {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+        }
+        .waveform-box.reference img {
+            max-width: 100%;
+            max-height: 120px;
+            object-fit: contain;
+        }
+        fc-frequency-waveform {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .label {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        .controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        button {
+            padding: 8px 16px;
+            background: #3282b8;
+            border: none;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background: #2a6a9a; }
+        .status {
+            font-size: 12px;
+            color: #888;
+        }
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: #333;
+            border-radius: 8px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+        .color-box { width: 14px; height: 14px; border-radius: 2px; }
+    </style>
+</head>
+<body>
+    <h1>Comparisonics Parity Test - Our Implementation vs Reference</h1>
+
+    <div class="legend">
+        <div class="legend-item"><div class="color-box" style="background: rgb(80,60,120);"></div><span>Sub-bass</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(100,80,140);"></div><span>Bass</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(50,160,170);"></div><span>Teal (low-mid)</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(100,200,120);"></div><span>Green (mid)</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(220,200,80);"></div><span>Yellow</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(250,170,100);"></div><span>Orange</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(245,120,170);"></div><span>Pink</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(220,80,200);"></div><span>Magenta</span></div>
+    </div>
+
+    <div class="controls">
+        <button id="loadAllBtn">Load All Samples</button>
+        <span class="status" id="status">Click to load all samples from ./samples/</span>
+    </div>
+
+    <div id="samples"></div>
+
+    <script type="module">
+        import { FcFrequencyWaveform } from '../src/FrequencyWaveform.js';
+
+        const samples = [
+            {
+                name: 'minip5.wav',
+                wav: './samples/minip5.wav',
+                ref: './samples/refs/0147698.jpg',
+                expected: 'Teal/cyan (913 Hz)'
+            },
+            {
+                name: 'beep.wav',
+                wav: './samples/beep.wav',
+                ref: './samples/refs/0163387.jpg',
+                expected: 'Bright pink/magenta (2248 Hz + high harmonics)'
+            },
+            {
+                name: 'talk1.wav',
+                wav: './samples/talk1.wav',
+                ref: './samples/refs/0180559.jpg',
+                expected: 'Orange/salmon (2689 Hz)'
+            },
+            {
+                name: 'smrpg_item.wav',
+                wav: './samples/smrpg_item.wav',
+                ref: './samples/refs/0162598.jpg',
+                expected: 'Color sweep (purple→blue→green→yellow→pink)'
+            },
+            {
+                name: '3alert.wav',
+                wav: './samples/3alert.wav',
+                ref: './samples/refs/0163364.jpg',
+                expected: 'Pink (outer) + Green (inner) - sweeping'
+            },
+            {
+                name: 'STTNG35.wav',
+                wav: './samples/STTNG35.wav',
+                ref: './samples/refs/0096232.jpg',
+                expected: 'Pink (outer) + Yellow (inner) - NO green'
+            },
+        ];
+
+        const container = document.getElementById('samples');
+        const statusEl = document.getElementById('status');
+        const loadAllBtn = document.getElementById('loadAllBtn');
+        let audioContext;
+
+        // Create sample pair elements
+        samples.forEach((sample, idx) => {
+            const pair = document.createElement('div');
+            pair.className = 'sample-pair';
+            pair.innerHTML = `
+                <div class="sample-name">${sample.name}</div>
+                <div class="sample-info">Expected: ${sample.expected}</div>
+                <div>
+                    <div class="label">Our Implementation:</div>
+                    <div class="waveform-box ours">
+                        <fc-frequency-waveform id="waveform-${idx}"></fc-frequency-waveform>
+                    </div>
+                </div>
+                <div>
+                    <div class="label">Comparisonics Reference:</div>
+                    <div class="waveform-box reference">
+                        <img src="${sample.ref}" alt="Reference" onerror="this.parentElement.innerHTML='<span style=color:#666>Reference not found</span>'">
+                    </div>
+                </div>
+            `;
+            container.appendChild(pair);
+        });
+
+        async function loadSample(idx) {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            const sample = samples[idx];
+            const waveform = document.getElementById(`waveform-${idx}`);
+
+            try {
+                // Try loading from file:// path via fetch won't work, but we can try
+                // For local testing, user needs to use file input or serve files
+                const response = await fetch(sample.wav);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                waveform.audioBuffer = audioBuffer;
+                return true;
+            } catch (err) {
+                console.error(`Error loading ${sample.name}:`, err);
+                return false;
+            }
+        }
+
+        loadAllBtn.addEventListener('click', async () => {
+            statusEl.textContent = 'Loading samples...';
+            let loaded = 0;
+
+            for (let i = 0; i < samples.length; i++) {
+                const success = await loadSample(i);
+                if (success) loaded++;
+                statusEl.textContent = `Loaded ${loaded}/${samples.length} samples...`;
+            }
+
+            statusEl.textContent = `Loaded ${loaded}/${samples.length} samples. Compare visually!`;
+        });
+
+        // File drag & drop support for local testing
+        document.body.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        });
+
+        document.body.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            const files = Array.from(e.dataTransfer.files);
+            for (const file of files) {
+                const matchIdx = samples.findIndex(s =>
+                    file.name.toLowerCase().includes(s.name.toLowerCase().replace('.wav', ''))
+                );
+
+                if (matchIdx >= 0) {
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                        const waveform = document.getElementById(`waveform-${matchIdx}`);
+                        waveform.audioBuffer = audioBuffer;
+                        statusEl.textContent = `Loaded ${file.name}`;
+                    } catch (err) {
+                        console.error(`Error loading ${file.name}:`, err);
+                    }
+                }
+            }
+        });
+
+        // Auto-load on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => loadAllBtn.click(), 500);
+        });
+    </script>
+</body>
+</html>

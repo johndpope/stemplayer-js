@@ -74,13 +74,13 @@ export class Row extends LitElement {
   // eslint-disable-next-line class-methods-use-this
   #getLargeScreenTpl() {
     return html`<div class="dFlex h100">
-      <div class="wControls stickLeft bgControls z999">
+      <div class="wControls stickLeft bgControls z999 h100">
         <slot name="controls"></slot>
       </div>
-      <div class="flex1">
+      <div class="flex1 h100">
         <slot name="flex"></slot>
       </div>
-      <div class="wEnd stickRight bgEnd z99 dFlex">
+      <div class="wEnd stickRight bgEnd z99 dFlex h100">
         <slot name="end"></slot>
       </div>
     </div>`;

@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frequency Waveform - Chase On The Ferry</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #fff;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+        .description {
+            color: #666;
+            font-size: 0.9rem;
+            max-width: 800px;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 1rem 2rem;
+            background: #f8f8f8;
+            border-bottom: 1px solid #eee;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+        .color-box { width: 16px; height: 16px; border-radius: 3px; }
+
+        .controls-bar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 2rem;
+            background: #1a1a2e;
+            color: white;
+        }
+
+        .play-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            background: #3282b8;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        .play-btn:hover { background: #2e8b57; }
+
+        .time-display {
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .master-progress {
+            flex: 1;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+        }
+        .master-progress-fill {
+            height: 100%;
+            background: #3282b8;
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        .stems-container {
+            max-height: calc(100vh - 250px);
+            overflow-y: auto;
+        }
+
+        .stem-row {
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            height: 60px;
+        }
+
+        .stem-controls {
+            width: 230px;
+            padding: 0 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: #f5f5f5;
+            height: 100%;
+            flex-shrink: 0;
+        }
+
+        .stem-name {
+            font-size: 13px;
+            font-weight: 500;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mute-btn, .solo-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .mute-btn:hover, .solo-btn:hover { background: #ddd; }
+        .mute-btn.muted { color: #d62828; }
+        .solo-btn.active { background: #f0ad4e; color: #000; }
+
+        .volume-slider {
+            width: 60px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #ccc;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #3282b8;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .waveform-container {
+            flex: 1;
+            height: 100%;
+            position: relative;
+        }
+
+        fc-frequency-waveform {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .loading-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1a1a2e;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+        }
+        .loading-toast.visible { display: block; }
+        .loading-toast .count { color: #3282b8; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Frequency Waveform - Chase On The Ferry</h1>
+        <p class="description">
+            Waveforms colored by dominant frequency (Comparisonics): dark blue for bass, lighter blues/greens for mid-range, yellows/reds for highs.
+        </p>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item"><div class="color-box" style="background: rgb(100,80,140);"></div><span>Bass</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(60,140,160);"></div><span>Low</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(100,200,100);"></div><span>Mid</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(240,220,100);"></div><span>Upper</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(250,150,150);"></div><span>Presence</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(230,100,180);"></div><span>High</span></div>
+        <div class="legend-item"><div class="color-box" style="background: rgb(200,80,200);"></div><span>V.High</span></div>
+    </div>
+
+    <div class="controls-bar">
+        <button class="play-btn" id="playBtn">▶</button>
+        <span class="time-display"><span id="currentTime">0:00</span> / <span id="totalTime">0:00</span></span>
+        <div class="master-progress" id="masterProgress">
+            <div class="master-progress-fill" id="progressFill"></div>
+        </div>
+    </div>
+
+    <div class="stems-container" id="stemsContainer"></div>
+
+    <div class="loading-toast" id="loadingToast">
+        Loading stems: <span class="count" id="loadCount">0</span> / <span id="totalCount">20</span>
+    </div>
+
+    <script type="module">
+        import { FcFrequencyWaveform } from '../src/FrequencyWaveform.js';
+
+        const baseUrl = 'https://sjhimebeoulzexcdcxln.supabase.co/storage/v1/object/public/game-assets/audio_stems/sanity-test-1d4db196/';
+        const stems = [
+            { name: 'Timpani', file: 'Chase_On_The_Ferry_00_timpani.wav' },
+            { name: 'Piano', file: 'Chase_On_The_Ferry_01_piano.wav' },
+            { name: 'Strings', file: 'Chase_On_The_Ferry_02_strings.wav' },
+            { name: 'Harp', file: 'Chase_On_The_Ferry_03_harp.wav' },
+            { name: 'Trumpet', file: 'Chase_On_The_Ferry_04_trumpet.wav' },
+            { name: 'Violin', file: 'Chase_On_The_Ferry_05_violin.wav' },
+            { name: 'Cello', file: 'Chase_On_The_Ferry_06_cello.wav' },
+            { name: 'Flute', file: 'Chase_On_The_Ferry_07_flute.wav' },
+            { name: 'Oboe', file: 'Chase_On_The_Ferry_08_oboe.wav' },
+            { name: 'Clarinet', file: 'Chase_On_The_Ferry_09_clarinet.wav' },
+            { name: 'Bassoon', file: 'Chase_On_The_Ferry_10_bassoon.wav' },
+            { name: 'French Horn', file: 'Chase_On_The_Ferry_11_french_horn.wav' },
+            { name: 'Trombone', file: 'Chase_On_The_Ferry_12_trombone.wav' },
+            { name: 'Tuba', file: 'Chase_On_The_Ferry_13_tuba.wav' },
+            { name: 'Percussion', file: 'Chase_On_The_Ferry_14_percussion.wav' },
+            { name: 'Drums', file: 'Chase_On_The_Ferry_15_drums.wav' },
+            { name: 'Guitar', file: 'Chase_On_The_Ferry_16_guitar.wav' },
+            { name: 'Bass', file: 'Chase_On_The_Ferry_17_bass.wav' },
+            { name: 'Organ', file: 'Chase_On_The_Ferry_18_organ.wav' },
+            { name: 'Synthesizer', file: 'Chase_On_The_Ferry_19_synthesizer.wav' },
+        ];
+
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const stemData = [];
+        let isPlaying = false;
+        let startTime = 0;
+        let pausedAt = 0;
+        let duration = 0;
+        let loadedCount = 0;
+
+        const container = document.getElementById('stemsContainer');
+        const playBtn = document.getElementById('playBtn');
+        const currentTimeEl = document.getElementById('currentTime');
+        const totalTimeEl = document.getElementById('totalTime');
+        const progressFill = document.getElementById('progressFill');
+        const masterProgress = document.getElementById('masterProgress');
+        const loadingToast = document.getElementById('loadingToast');
+        const loadCountEl = document.getElementById('loadCount');
+        const totalCountEl = document.getElementById('totalCount');
+
+        totalCountEl.textContent = stems.length;
+
+        // Create stem rows
+        stems.forEach((stem, index) => {
+            const row = document.createElement('div');
+            row.className = 'stem-row';
+            row.innerHTML = `
+                <div class="stem-controls">
+                    <button class="solo-btn" data-index="${index}" title="Solo">S</button>
+                    <button class="mute-btn" data-index="${index}" title="Mute">🔊</button>
+                    <input type="range" class="volume-slider" data-index="${index}" min="0" max="100" value="100">
+                    <span class="stem-name">${stem.name}</span>
+                </div>
+                <div class="waveform-container">
+                    <fc-frequency-waveform data-index="${index}"></fc-frequency-waveform>
+                </div>
+            `;
+            container.appendChild(row);
+
+            stemData.push({
+                name: stem.name,
+                url: baseUrl + stem.file,
+                audioBuffer: null,
+                sourceNode: null,
+                gainNode: audioContext.createGain(),
+                volume: 1,
+                muted: false,
+                solo: false,
+                waveform: row.querySelector('fc-frequency-waveform'),
+                row: row,
+            });
+
+            // Connect gain to destination
+            stemData[index].gainNode.connect(audioContext.destination);
+        });
+
+        // Load all stems
+        loadingToast.classList.add('visible');
+
+        stems.forEach((stem, index) => {
+            loadStem(index);
+        });
+
+        async function loadStem(index) {
+            const data = stemData[index];
+            try {
+                const response = await fetch(data.url);
+                const arrayBuffer = await response.arrayBuffer();
+                data.audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+                // Update duration
+                if (data.audioBuffer.duration > duration) {
+                    duration = data.audioBuffer.duration;
+                    totalTimeEl.textContent = formatTime(duration);
+                }
+
+                // Set audio buffer on waveform for frequency analysis
+                data.waveform.audioBuffer = data.audioBuffer;
+
+                loadedCount++;
+                loadCountEl.textContent = loadedCount;
+
+                if (loadedCount === stems.length) {
+                    setTimeout(() => loadingToast.classList.remove('visible'), 1000);
+                }
+            } catch (err) {
+                console.error(`Error loading ${data.name}:`, err);
+                loadedCount++;
+                loadCountEl.textContent = loadedCount;
+            }
+        }
+
+        // Play/Pause
+        playBtn.addEventListener('click', () => {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            if (isPlaying) {
+                pause();
+            } else {
+                play();
+            }
+        });
+
+        function play() {
+            if (loadedCount === 0) return;
+
+            isPlaying = true;
+            playBtn.textContent = '⏸';
+            startTime = audioContext.currentTime - pausedAt;
+
+            stemData.forEach(data => {
+                if (data.audioBuffer) {
+                    data.sourceNode = audioContext.createBufferSource();
+                    data.sourceNode.buffer = data.audioBuffer;
+                    data.sourceNode.connect(data.gainNode);
+                    data.sourceNode.start(0, pausedAt);
+                }
+            });
+
+            updateProgress();
+        }
+
+        function pause() {
+            isPlaying = false;
+            playBtn.textContent = '▶';
+            pausedAt = audioContext.currentTime - startTime;
+
+            stemData.forEach(data => {
+                if (data.sourceNode) {
+                    data.sourceNode.stop();
+                    data.sourceNode = null;
+                }
+            });
+        }
+
+        function updateProgress() {
+            if (!isPlaying) return;
+
+            const currentTime = audioContext.currentTime - startTime;
+            const progress = currentTime / duration;
+
+            if (currentTime >= duration) {
+                pause();
+                pausedAt = 0;
+                stemData.forEach(data => data.waveform.progress = 0);
+                progressFill.style.width = '0%';
+                currentTimeEl.textContent = '0:00';
+                return;
+            }
+
+            currentTimeEl.textContent = formatTime(currentTime);
+            progressFill.style.width = (progress * 100) + '%';
+
+            stemData.forEach(data => {
+                data.waveform.progress = progress;
+            });
+
+            requestAnimationFrame(updateProgress);
+        }
+
+        // Seek
+        masterProgress.addEventListener('click', (e) => {
+            const rect = masterProgress.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            const seekTime = pct * duration;
+
+            const wasPlaying = isPlaying;
+            if (isPlaying) pause();
+
+            pausedAt = seekTime;
+            progressFill.style.width = (pct * 100) + '%';
+            currentTimeEl.textContent = formatTime(seekTime);
+
+            stemData.forEach(data => {
+                data.waveform.progress = pct;
+            });
+
+            if (wasPlaying) play();
+        });
+
+        // Update gain based on mute/solo state
+        function updateGain(data) {
+            const anySoloed = stemData.some(d => d.solo);
+            if (data.muted) {
+                data.gainNode.gain.value = 0;
+            } else if (anySoloed && !data.solo) {
+                data.gainNode.gain.value = 0;
+            } else {
+                data.gainNode.gain.value = data.volume;
+            }
+        }
+
+        // Solo buttons
+        container.addEventListener('click', (e) => {
+            if (e.target.classList.contains('solo-btn')) {
+                const index = parseInt(e.target.dataset.index);
+                const data = stemData[index];
+                data.solo = !data.solo;
+                e.target.classList.toggle('active', data.solo);
+
+                // Update all gains
+                stemData.forEach(updateGain);
+            }
+        });
+
+        // Mute buttons
+        container.addEventListener('click', (e) => {
+            if (e.target.classList.contains('mute-btn')) {
+                const index = parseInt(e.target.dataset.index);
+                const data = stemData[index];
+                data.muted = !data.muted;
+                updateGain(data);
+                e.target.textContent = data.muted ? '🔇' : '🔊';
+                e.target.classList.toggle('muted', data.muted);
+            }
+        });
+
+        // Volume sliders
+        container.addEventListener('input', (e) => {
+            if (e.target.classList.contains('volume-slider')) {
+                const index = parseInt(e.target.dataset.index);
+                const data = stemData[index];
+                data.volume = e.target.value / 100;
+                updateGain(data);
+                data.waveform.scaleY = data.volume;
+            }
+        });
+
+        // Waveform click to seek
+        container.addEventListener('waveform:seek', (e) => {
+            const pct = e.detail;
+            const seekTime = pct * duration;
+
+            const wasPlaying = isPlaying;
+            if (isPlaying) pause();
+
+            pausedAt = seekTime;
+            progressFill.style.width = (pct * 100) + '%';
+            currentTimeEl.textContent = formatTime(seekTime);
+
+            stemData.forEach(data => {
+                data.waveform.progress = pct;
+            });
+
+            if (wasPlaying) play();
+        });
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>
