@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Frequency Waveform - Chase On The Ferry</title>
+    <title>Frequency Waveform - Demo Track</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -175,7 +175,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>Frequency Waveform - Chase On The Ferry</h1>
+        <h1>Frequency Waveform - Demo Track</h1>
         <p class="description">
             Waveforms colored by dominant frequency (Comparisonics): dark blue for bass, lighter blues/greens for mid-range, yellows/reds for highs.
         </p>
@@ -202,34 +202,19 @@
     <div class="stems-container" id="stemsContainer"></div>
 
     <div class="loading-toast" id="loadingToast">
-        Loading stems: <span class="count" id="loadCount">0</span> / <span id="totalCount">20</span>
+        Loading stems: <span class="count" id="loadCount">0</span> / <span id="totalCount">5</span>
     </div>
 
     <script type="module">
         import { FcFrequencyWaveform } from '../src/FrequencyWaveform.js';
 
-        const baseUrl = 'https://sjhimebeoulzexcdcxln.supabase.co/storage/v1/object/public/game-assets/audio_stems/sanity-test-1d4db196/';
+        const baseUrl = 'assets/audio/';
         const stems = [
-            { name: 'Timpani', file: 'Chase_On_The_Ferry_00_timpani.wav' },
-            { name: 'Piano', file: 'Chase_On_The_Ferry_01_piano.wav' },
-            { name: 'Strings', file: 'Chase_On_The_Ferry_02_strings.wav' },
-            { name: 'Harp', file: 'Chase_On_The_Ferry_03_harp.wav' },
-            { name: 'Trumpet', file: 'Chase_On_The_Ferry_04_trumpet.wav' },
-            { name: 'Violin', file: 'Chase_On_The_Ferry_05_violin.wav' },
-            { name: 'Cello', file: 'Chase_On_The_Ferry_06_cello.wav' },
-            { name: 'Flute', file: 'Chase_On_The_Ferry_07_flute.wav' },
-            { name: 'Oboe', file: 'Chase_On_The_Ferry_08_oboe.wav' },
-            { name: 'Clarinet', file: 'Chase_On_The_Ferry_09_clarinet.wav' },
-            { name: 'Bassoon', file: 'Chase_On_The_Ferry_10_bassoon.wav' },
-            { name: 'French Horn', file: 'Chase_On_The_Ferry_11_french_horn.wav' },
-            { name: 'Trombone', file: 'Chase_On_The_Ferry_12_trombone.wav' },
-            { name: 'Tuba', file: 'Chase_On_The_Ferry_13_tuba.wav' },
-            { name: 'Percussion', file: 'Chase_On_The_Ferry_14_percussion.wav' },
-            { name: 'Drums', file: 'Chase_On_The_Ferry_15_drums.wav' },
-            { name: 'Guitar', file: 'Chase_On_The_Ferry_16_guitar.wav' },
-            { name: 'Bass', file: 'Chase_On_The_Ferry_17_bass.wav' },
-            { name: 'Organ', file: 'Chase_On_The_Ferry_18_organ.wav' },
-            { name: 'Synthesizer', file: 'Chase_On_The_Ferry_19_synthesizer.wav' },
+            { name: 'Drums A', file: '106%20DRUMS%20A_02.5.m3u8' },
+            { name: 'Drums B', file: '106%20DRUMS%20B_01.5.m3u8' },
+            { name: 'Conga', file: '106%20CONGA_03.3.m3u8' },
+            { name: 'Cabasa', file: '106%20CABASA_04.3.m3u8' },
+            { name: 'Bell', file: '106%20BELL_05.3.m3u8' },
         ];
 
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -293,12 +278,61 @@
             loadStem(index);
         });
 
+        // Parse m3u8 playlist and return segment URLs
+        async function parseM3u8(url) {
+            const response = await fetch(url);
+            const text = await response.text();
+            const baseDir = url.substring(0, url.lastIndexOf('/') + 1);
+            const segments = [];
+
+            for (const line of text.split('\n')) {
+                const trimmed = line.trim();
+                if (trimmed && !trimmed.startsWith('#')) {
+                    segments.push(baseDir + trimmed.replace(/ /g, '%20'));
+                }
+            }
+            return segments;
+        }
+
+        // Concatenate multiple AudioBuffers into one
+        function concatenateBuffers(buffers) {
+            const totalLength = buffers.reduce((sum, buf) => sum + buf.length, 0);
+            const channels = buffers[0].numberOfChannels;
+            const sampleRate = buffers[0].sampleRate;
+
+            const result = audioContext.createBuffer(channels, totalLength, sampleRate);
+
+            let offset = 0;
+            for (const buffer of buffers) {
+                for (let ch = 0; ch < channels; ch++) {
+                    result.getChannelData(ch).set(buffer.getChannelData(ch), offset);
+                }
+                offset += buffer.length;
+            }
+            return result;
+        }
+
         async function loadStem(index) {
             const data = stemData[index];
             try {
-                const response = await fetch(data.url);
-                const arrayBuffer = await response.arrayBuffer();
-                data.audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                // Check if it's an m3u8 playlist
+                if (data.url.endsWith('.m3u8')) {
+                    const segmentUrls = await parseM3u8(data.url);
+                    const buffers = [];
+
+                    for (const segUrl of segmentUrls) {
+                        const response = await fetch(segUrl);
+                        const arrayBuffer = await response.arrayBuffer();
+                        const decoded = await audioContext.decodeAudioData(arrayBuffer);
+                        buffers.push(decoded);
+                    }
+
+                    data.audioBuffer = concatenateBuffers(buffers);
+                } else {
+                    const response = await fetch(data.url);
+                    const arrayBuffer = await response.arrayBuffer();
+                    data.audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                }
 
                 // Update duration
                 if (data.audioBuffer.duration > duration) {
