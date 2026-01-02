@@ -1,0 +1,34 @@
+name: flutter_stem_player
+description: A Flutter stem player with frequency analyzer visualization, ported from stemplayer-js
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_soloud: ^2.0.0
+  provider: ^6.1.1
+  collection: ^1.18.0
+  path: ^1.8.3
+  http: ^1.1.0
+  path_provider: ^2.1.1
+  flutter_rust_bridge: ^2.7.0
+  ffi: ^2.1.0
+  file_picker: ^6.1.1
+  desktop_drop: ^0.4.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  ffigen: ^9.0.1
+  build_runner: ^2.4.6
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
